@@ -115,7 +115,7 @@ textarea.fi{resize:vertical;min-height:55px;line-height:1.55;}
 .preview-area.pat-hearts{background-image:radial-gradient(circle at 20% 30%,var(--c-tint) 8px,transparent 9px),radial-gradient(circle at 70% 70%,var(--c-tint) 6px,transparent 7px);background-size:80px 80px;}
 
 .bg-deco{position:absolute;border-radius:50%;pointer-events:none;}
-.pw{transform-origin:center;transition:transform .2s;}
+.pw{transform-origin:top left;position:absolute;}
 
 /* ===== CARD ===== */
 .card{width:900px;height:680px;background:var(--c-card);border-radius:22px;overflow:hidden;box-shadow:0 24px 56px rgba(216,95,126,.15),0 4px 16px rgba(0,0,0,.04);border:2px solid var(--c-border);flex-shrink:0;position:relative;display:flex;flex-direction:column;transition:all .4s;}
@@ -559,55 +559,55 @@ function switchTheme(t){ document.documentElement.setAttribute('data-theme',t); 
 function switchFont(f){ document.documentElement.style.setProperty('--font-card',FONT_MAP[f]); document.querySelectorAll('.font-opt').forEach(o=>o.classList.remove('active')); document.querySelector(`.font-opt[data-font="${f}"]`).classList.add('active'); }
 function switchPattern(ev,pat){ $('preview-area').className='preview-area'+(pat?' pat-'+pat:''); document.querySelectorAll('.pat-opt').forEach(o=>o.classList.remove('active')); ev.currentTarget.classList.add('active'); }
 
-// 🔥 캡처 오류 완전 해결을 위한 캡처 로직 (수정됨)
+// ===== 캡처 로직 (글씨 깨짐 + 이미지 눌림 완전 수정) =====
 function downloadCard(){
   showToast('카드 저장 중... ♡');
-  
-  // 1. 원본 카드 복제
-  const original = $('card');
-  const clone = original.cloneNode(true);
-  
-  // 2. 복제본 스타일 강제 정규화 (겹침 및 눌림 방지)
-  clone.style.transform = 'none';
-  clone.style.position = 'fixed';
-  clone.style.top = '-9999px'; // 화면 밖으로
-  clone.style.left = '0';
-  clone.style.width = '900px';
-  clone.style.height = '680px';
-  clone.style.margin = '0';
-  clone.style.boxShadow = 'none';
-  
-  // 캡처 시 배경 데코 숨기기 (복제본 내부)
-  clone.querySelectorAll('.bg-deco, .deco').forEach(el => el.style.opacity = '1');
-  
-  document.body.appendChild(clone);
 
-  // 3. 렌더링을 위해 아주 잠깐 대기 후 캡처
-  setTimeout(() => {
-    html2canvas(clone, {
-      useCORS: true,
-      allowTaint: true,
-      scale: 2, // 고해상도
-      logging: false,
-      backgroundColor: null,
-      width: 900,
-      height: 680
-    })
-    .then(canvas => {
-      const link = document.createElement('a');
-      link.download = 'profile-card.png';
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-      showToast('다운로드 완료! ♡');
-    })
-    .catch(err => {
-      console.error(err);
-      showToast('⚠ 오류가 발생했어요.');
-    })
-    .finally(() => {
-      document.body.removeChild(clone); // 캡처 후 삭제
-    });
-  }, 100);
+  // 1. preview-wrapper의 현재 scale을 완전히 제거하고 카드 원본 크기(900×680)로 캡처
+  const wrapper = $('preview-wrapper');
+  const card    = $('card');
+
+  // 기존 transform 백업 후 제거
+  const prevTransform = wrapper.style.transform;
+  wrapper.style.transform = 'none';
+  wrapper.style.transformOrigin = 'top left';
+
+  // 2. 폰트가 완전히 로드된 뒤 캡처
+  document.fonts.ready.then(() => {
+    // 잠깐 대기해서 레이아웃이 transform 해제에 반응하도록 함
+    setTimeout(() => {
+      html2canvas(card, {
+        useCORS: true,
+        allowTaint: true,
+        scale: 2,          // 2× 고해상도
+        logging: false,
+        backgroundColor: null,
+        width: 900,
+        height: 680,
+        windowWidth: 900,
+        windowHeight: 680,
+        // 캡처 범위를 카드 정확히에 맞춤
+        x: 0,
+        y: 0,
+      })
+      .then(canvas => {
+        const link = document.createElement('a');
+        link.download = 'profile-card.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        showToast('다운로드 완료! ♡');
+      })
+      .catch(err => {
+        console.error(err);
+        showToast('⚠ 오류가 발생했어요.');
+      })
+      .finally(() => {
+        // transform 원복
+        wrapper.style.transform = prevTransform;
+        wrapper.style.transformOrigin = 'center';
+      });
+    }, 150);
+  });
 }
 
 const TEXT_FIELDS=['name','emoji','handle','comment'];
@@ -654,13 +654,36 @@ function resetAll(){
 function scalePreview(){
   const a=$('preview-area'),w=$('preview-wrapper');if(!a||!w)return;
   const s=Math.min((a.clientWidth-60)/900,(a.clientHeight-60)/680,1);
+  w.style.transformOrigin='top left';
+  w.style.position='absolute';
+  // 카드를 미리보기 영역 중앙에 배치
+  const scaledW=900*s, scaledH=680*s;
+  w.style.left=Math.max(0,(a.clientWidth-scaledW)/2)+'px';
+  w.style.top=Math.max(0,(a.clientHeight-scaledH)/2)+'px';
   w.style.transform=`scale(${s})`;
 }
 
 function showToast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._tid);t._tid=setTimeout(()=>t.classList.remove('show'),2400);}
 
-window.addEventListener('resize',scalePreview);
-window.addEventListener('load',()=>{buildInfoBox();loadFromURL();scalePreview();});
+// 폰트 프리워밍: 캡처 시 글씨 깨짐 방지
+function prewarmFonts() {
+  const families = ['Gowun Dodum', 'Gamja Flower', 'Jua', 'Poor Story'];
+  families.forEach(f => {
+    const el = document.createElement('span');
+    el.style.cssText = `font-family:'${f}',sans-serif;position:absolute;left:-9999px;top:-9999px;font-size:12px;`;
+    el.textContent = '가나다 ABCabc';
+    document.body.appendChild(el);
+    setTimeout(() => document.body.removeChild(el), 2000);
+  });
+}
+
+window.addEventListener('resize', scalePreview);
+window.addEventListener('load', () => {
+  buildInfoBox();
+  loadFromURL();
+  scalePreview();
+  prewarmFonts();
+});
 </script>
 </body>
 </html>
