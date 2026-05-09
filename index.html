@@ -142,8 +142,7 @@ textarea.fi{resize:vertical;min-height:55px;line-height:1.55;}
 .name-text{font-family:var(--font-disp);font-size:26px;color:var(--c-text);line-height:1;letter-spacing:.5px;}
 .name-emoji{font-size:18px;}
 .handle-row{display:none;align-items:center;gap:6px;}
-.handle-link{font-size:12px;color:var(--c-deep);text-decoration:none;font-weight:600;}
-.handle-link:hover{text-decoration:underline;}
+.handle-link{font-size:12px;color:var(--c-deep);font-weight:600;}
 .handle-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;background:var(--c-pill-bg);color:var(--c-pill-text);border-radius:99px;font-size:9px;font-weight:700;}
 .handle-tag::before{content:'♡';font-size:8px;}
 
@@ -240,9 +239,8 @@ textarea.fi{resize:vertical;min-height:55px;line-height:1.55;}
       </div>
     </div>
     <div class="field">
-      <label class="fl">아이디 / 트위터 링크</label>
-      <input class="fi" id="inp-handle" placeholder="아이디 (예: abcd)" oninput="render()">
-      <input class="fi" id="inp-twurl" type="url" placeholder="X(트위터) URL" oninput="render()">
+      <label class="fl">아이디</label>
+      <input class="fi" id="inp-handle" placeholder="@아이디 (예: abcd)" oninput="render()">
     </div>
     <div class="field">
       <label class="fl">프로필 이미지</label>
@@ -330,7 +328,7 @@ textarea.fi{resize:vertical;min-height:55px;line-height:1.55;}
               <span class="name-emoji" id="d-emoji"></span>
             </div>
             <div class="handle-row" id="d-handle-row">
-              <a class="handle-link" id="d-handle" target="_blank" rel="noopener"></a>
+              <span class="handle-link" id="d-handle"></span>
               <span class="handle-tag">online</span>
             </div>
             <div class="comment-wrap" id="d-comment-wrap">
@@ -519,8 +517,8 @@ function render() {
   $('d-name').textContent = inpVal('name');
   $('d-emoji').textContent = inpVal('emoji');
 
-  const handle=inpVal('handle'), twurl=inpVal('twurl');
-  if(handle){ $('d-handle-row').style.display='flex'; const h=$('d-handle'); h.textContent='@'+handle.replace(/^@/,''); if(twurl){h.href=twurl;h.style.cursor='pointer';}else{h.removeAttribute('href');h.style.cursor='default';} }
+  const handle=inpVal('handle');
+  if(handle){ $('d-handle-row').style.display='flex'; $('d-handle').textContent='@'+handle.replace(/^@/,''); }
   else{ $('d-handle-row').style.display='none'; }
 
   setImg($('d-avatar'), 'avatar', '<span class="avatar-empty">♡</span>');
@@ -571,7 +569,7 @@ function downloadCard(){
     .catch(()=>showToast('⚠ 오류가 발생했어요.'));
 }
 
-const TEXT_FIELDS=['name','emoji','handle','twurl','comment'];
+const TEXT_FIELDS=['name','emoji','handle','comment'];
 
 function shareCard(){
   const p=new URLSearchParams();
