@@ -576,6 +576,8 @@ function downloadCard(){
   document.fonts.ready.then(() => {
     // 잠깐 대기해서 레이아웃이 transform 해제에 반응하도록 함
     setTimeout(() => {
+      // 카드의 실제 페이지 내 위치 계산 (transform 해제 후)
+      const rect = card.getBoundingClientRect();
       html2canvas(card, {
         useCORS: true,
         allowTaint: true,
@@ -584,11 +586,8 @@ function downloadCard(){
         backgroundColor: null,
         width: 900,
         height: 680,
-        windowWidth: 900,
-        windowHeight: 680,
-        // 캡처 범위를 카드 정확히에 맞춤
-        x: 0,
-        y: 0,
+        scrollX: -rect.left,
+        scrollY: -rect.top,
       })
       .then(canvas => {
         const link = document.createElement('a');
