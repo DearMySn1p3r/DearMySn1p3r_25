@@ -559,44 +559,52 @@ function switchTheme(t){ document.documentElement.setAttribute('data-theme',t); 
 function switchFont(f){ document.documentElement.style.setProperty('--font-card',FONT_MAP[f]); document.querySelectorAll('.font-opt').forEach(o=>o.classList.remove('active')); document.querySelector(`.font-opt[data-font="${f}"]`).classList.add('active'); }
 function switchPattern(ev,pat){ $('preview-area').className='preview-area'+(pat?' pat-'+pat:''); document.querySelectorAll('.pat-opt').forEach(o=>o.classList.remove('active')); ev.currentTarget.classList.add('active'); }
 
-// ===== 캡처 로직: 오프스크린 독립 컨테이너 방식 (눌림+까맣게 완전 해결) =====
+// ===== 캡처 로직: wrapper 패딩 후 정밀 크롭 =====
 function downloadCard(){
   showToast('카드 저장 중... ♡');
 
-  const CARD_W = 900, CARD_H = 680, SCALE = 2;
+  const CARD_W = 900, SCALE = 2, PAD = 6;
   const card = $('card');
 
   document.fonts.ready.then(() => {
-    // 1. 화면 밖(left:-9999px)에 정확히 900px 너비의 컨테이너 생성
-    //    visibility:hidden 쓰면 캡처 안 됨 → 그냥 화면 밖으로 밀어냄
+    // 1. 화면 밖 shell — 카드 너비 + 양쪽 PAD 여유
     const shell = document.createElement('div');
     shell.style.cssText = [
       'position:fixed',
-      `top:0`,
-      `left:-${CARD_W + 100}px`,
-      `width:${CARD_W}px`,
+      'top:0',
+      `left:-${CARD_W + 200}px`,
+      `width:${CARD_W + PAD * 2}px`,
       'height:auto',
       'overflow:visible',
       'z-index:9999',
     ].join(';');
 
-    // 2. 카드 복제
+    // 2. clone을 PAD만큼 padding 준 wrapper로 감쌈
+    //    → 테두리가 wrapper 경계에 절대 닿지 않음
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = [
+      `padding:${PAD}px`,
+      'display:inline-block',
+      'background:transparent',
+      'line-height:0',
+    ].join(';');
+
+    // 3. 카드 복제 — 고정 높이/overflow 제약 해제
     const clone = card.cloneNode(true);
     clone.style.cssText = [
       `width:${CARD_W}px`,
-      'min-height:680px',
       'height:auto',
+      'min-height:0',
       'transform:none',
       'position:static',
       'margin:0',
       'box-shadow:none',
-      'border-radius:22px',
-      'overflow:hidden',
-      'display:flex',
-      'flex-direction:column',
+      'overflow:visible',
     ].join(';');
+    const cardBody = clone.querySelector('.card-body');
+    if(cardBody) cardBody.style.overflow = 'visible';
 
-    // 3. imgData 이미지를 복제본에 직접 재주입 (cloneNode는 파일 참조를 못 가져옴)
+    // 4. 이미지 재주입
     if(imgData['avatar']){
       const av = clone.querySelector('.avatar');
       if(av) av.innerHTML = `<img src="${imgData['avatar']}" style="width:100%;height:100%;object-fit:cover;" alt="">`;
@@ -609,57 +617,58 @@ function downloadCard(){
       }
     });
 
-    shell.appendChild(clone);
+    wrapper.appendChild(clone);
+    shell.appendChild(wrapper);
     document.body.appendChild(shell);
 
-    // 4. 복제본 내 모든 이미지가 로드 완료될 때까지 대기 (잘림 방지)
-    const imgs = clone.querySelectorAll('img');
-    const imgPromises = Array.from(imgs).map(img => {
-      if(img.complete && img.naturalHeight !== 0) return Promise.resolve();
-      return new Promise(resolve => {
-        img.onload = resolve;
-        img.onerror = resolve;
-        // 안전장치: 1초 타임아웃
-        setTimeout(resolve, 1000);
+    setTimeout(() => {
+      // 5. wrapper 전체 캡처 (PAD 포함)
+      const wRect = wrapper.getBoundingClientRect();
+      const wW = Math.ceil(wRect.width);
+      const wH = Math.ceil(wRect.height);
+
+      html2canvas(wrapper, {
+        useCORS: true,
+        allowTaint: true,
+        scale: SCALE,
+        logging: false,
+        backgroundColor: null,
+        width: wW,
+        height: wH,
+        scrollX: 0,
+        scrollY: 0,
+      })
+      .then(rawCanvas => {
+        // 6. PAD 만큼 정확히 크롭 → 카드 테두리만 남김
+        const cropX = PAD * SCALE;
+        const cropY = PAD * SCALE;
+        const cropW = CARD_W * SCALE;
+        const cRect = clone.getBoundingClientRect();
+        const cropH = Math.ceil(cRect.height) * SCALE;
+
+        const out = document.createElement('canvas');
+        out.width  = cropW;
+        out.height = cropH;
+        out.getContext('2d').drawImage(
+          rawCanvas,
+          cropX, cropY, cropW, cropH,
+          0, 0, cropW, cropH
+        );
+
+        const link = document.createElement('a');
+        link.download = 'profile-card.png';
+        link.href = out.toDataURL('image/png');
+        link.click();
+        showToast('다운로드 완료! ♡');
+      })
+      .catch(err => {
+        console.error(err);
+        showToast('⚠ 오류가 발생했어요.');
+      })
+      .finally(() => {
+        document.body.removeChild(shell);
       });
-    });
-
-    Promise.all(imgPromises).then(() => {
-      // 이미지 로드 후에도 브라우저가 레이아웃 재계산할 시간 줌
-      setTimeout(() => {
-        // 실제 렌더링된 크기를 동적으로 읽음 (말풍선 등 추가 시 높이 변동 대응)
-        // getBoundingClientRect로 소수점 포함 정확한 높이 읽기 + 잘림 방지용 6px
-        const rect2 = clone.getBoundingClientRect();
-        const actualW = Math.ceil(rect2.width)  || CARD_W;
-        const actualH = Math.ceil(rect2.height) + 6 || CARD_H;
-
-        html2canvas(clone, {
-          useCORS: true,
-          allowTaint: true,
-          scale: SCALE,
-          logging: false,
-          backgroundColor: '#ffffff',
-          width: actualW,
-          height: actualH,
-          scrollX: 0,
-          scrollY: 0,
-        })
-        .then(canvas => {
-          const link = document.createElement('a');
-          link.download = 'profile-card.png';
-          link.href = canvas.toDataURL('image/png');
-          link.click();
-          showToast('다운로드 완료! ♡');
-        })
-        .catch(err => {
-          console.error(err);
-          showToast('⚠ 오류가 발생했어요.');
-        })
-        .finally(() => {
-          document.body.removeChild(shell);
-        });
-      }, 150);
-    });
+    }, 300);
   });
 }
 
