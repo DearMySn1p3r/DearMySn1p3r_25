@@ -127,7 +127,7 @@ textarea.fi{resize:vertical;min-height:55px;line-height:1.55;}
 .wc{width:17px;height:17px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--c-deep);border:1.5px solid var(--c-deep);border-radius:4px;background:var(--c-card);font-weight:700;}
 .wc.h{color:var(--c-strong);border-color:var(--c-strong);font-size:9px;}
 
-.card-body{flex:1;padding:22px 26px;display:flex;flex-direction:column;gap:12px;overflow:hidden;position:relative;background:radial-gradient(circle at 96% 5%,var(--c-tint) 50px,transparent 51px),radial-gradient(circle at 3% 96%,var(--c-tint) 36px,transparent 37px),var(--c-card);}
+.card-body{flex:1;padding:22px 26px;display:flex;flex-direction:column;gap:12px;overflow:hidden;position:relative;background:var(--c-card);}
 
 .profile-head{display:flex;align-items:flex-start;gap:18px;padding:2px 4px;}
 .avatar-wrap{position:relative;flex-shrink:0;}
@@ -564,9 +564,12 @@ function switchPattern(ev,pat){ $('preview-area').className='preview-area'+(pat?
 
 function downloadCard(){
   showToast('카드 저장 중... ♡');
+  // 캡처 시 배경 데코 숨기기
+  document.querySelectorAll('.bg-deco').forEach(el=>el.style.visibility='hidden');
   html2canvas($('card'),{useCORS:true,allowTaint:true,scale:2,logging:false,backgroundColor:null})
     .then(c=>{const a=document.createElement('a');a.download='profile-card.png';a.href=c.toDataURL('image/png');a.click();showToast('다운로드 완료! ♡');})
-    .catch(()=>showToast('⚠ 오류가 발생했어요.'));
+    .catch(()=>showToast('⚠ 오류가 발생했어요.'))
+    .finally(()=>{document.querySelectorAll('.bg-deco').forEach(el=>el.style.visibility='');});
 }
 
 const TEXT_FIELDS=['name','emoji','handle','comment'];
