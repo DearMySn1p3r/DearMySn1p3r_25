@@ -575,8 +575,8 @@ function downloadCard(){
       `top:0`,
       `left:-${CARD_W + 100}px`,   // 화면 왼쪽 완전 밖
       `width:${CARD_W}px`,
-      `height:${CARD_H}px`,
-      'overflow:hidden',
+      `height:auto`,
+      'overflow:visible',
       'z-index:9999',
     ].join(';');
 
@@ -584,7 +584,8 @@ function downloadCard(){
     const clone = card.cloneNode(true);
     clone.style.cssText = [
       `width:${CARD_W}px`,
-      `height:${CARD_H}px`,
+      'min-height:680px',
+      'height:auto',
       'transform:none',
       'position:static',
       'margin:0',
@@ -613,14 +614,18 @@ function downloadCard(){
 
     // 4. 브라우저가 레이아웃을 계산할 시간을 충분히 줌
     setTimeout(() => {
+      // 실제 렌더링된 크기를 동적으로 읽음 (말풍선 등 추가 시 높이 변동 대응)
+      const actualW = clone.scrollWidth  || CARD_W;
+      const actualH = clone.scrollHeight || CARD_H;
+
       html2canvas(clone, {
         useCORS: true,
         allowTaint: true,
         scale: SCALE,
         logging: false,
         backgroundColor: '#ffffff',
-        width: CARD_W,
-        height: CARD_H,
+        width: actualW,
+        height: actualH,
         scrollX: 0,
         scrollY: 0,
       })
