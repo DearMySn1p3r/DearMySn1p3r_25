@@ -229,7 +229,6 @@ textarea.fi{resize:vertical;min-height:55px;line-height:1.55;}
     <button class="tab-btn" onclick="switchTab(event,'style')">스타일</button>
   </div>
 
-  <!-- PROFILE -->
   <div class="tab-pane active" id="tab-profile">
     <div class="field">
       <label class="fl">이름 / 닉네임</label>
@@ -258,14 +257,12 @@ textarea.fi{resize:vertical;min-height:55px;line-height:1.55;}
     </div>
   </div>
 
-  <!-- PAIRS -->
   <div class="tab-pane" id="tab-gallery">
     <div id="ed-gallery"></div>
     <button class="add-pair-btn" id="add-pair-btn" onclick="addPair()">+ 페어 추가</button>
     <div class="pair-counter" id="pair-counter">0 / 6</div>
   </div>
 
-  <!-- STYLE -->
   <div class="tab-pane" id="tab-style">
     <div class="field">
       <label class="fl">색상 테마</label>
@@ -566,10 +563,26 @@ function downloadCard(){
   showToast('카드 저장 중... ♡');
   // 캡처 시 배경 데코 숨기기
   document.querySelectorAll('.bg-deco').forEach(el=>el.style.visibility='hidden');
-  html2canvas($('card'),{useCORS:true,allowTaint:true,scale:2,logging:false,backgroundColor:null})
-    .then(c=>{const a=document.createElement('a');a.download='profile-card.png';a.href=c.toDataURL('image/png');a.click();showToast('다운로드 완료! ♡');})
-    .catch(()=>showToast('⚠ 오류가 발생했어요.'))
-    .finally(()=>{document.querySelectorAll('.bg-deco').forEach(el=>el.style.visibility='');});
+  
+  const wrapper = $('preview-wrapper');
+  const originalTransform = wrapper.style.transform;
+  wrapper.style.transform = 'none';
+
+  setTimeout(() => {
+    html2canvas($('card'),{useCORS:true,allowTaint:true,scale:2,logging:false,backgroundColor:null})
+      .then(c=>{
+        const a=document.createElement('a');
+        a.download='profile-card.png';
+        a.href=c.toDataURL('image/png');
+        a.click();
+        showToast('다운로드 완료! ♡');
+      })
+      .catch(()=>showToast('⚠ 오류가 발생했어요.'))
+      .finally(()=>{
+        document.querySelectorAll('.bg-deco').forEach(el=>el.style.visibility='');
+        wrapper.style.transform = originalTransform;
+      });
+  }, 50);
 }
 
 const TEXT_FIELDS=['name','emoji','handle','comment'];
