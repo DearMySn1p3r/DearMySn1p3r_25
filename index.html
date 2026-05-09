@@ -615,8 +615,10 @@ function downloadCard(){
     // 4. 브라우저가 레이아웃을 계산할 시간을 충분히 줌
     setTimeout(() => {
       // 실제 렌더링된 크기를 동적으로 읽음 (말풍선 등 추가 시 높이 변동 대응)
-      const actualW = clone.scrollWidth  || CARD_W;
-      const actualH = clone.scrollHeight || CARD_H;
+      // getBoundingClientRect로 소수점 포함 정확한 높이 읽기 + 여유 4px
+      const rect2 = clone.getBoundingClientRect();
+      const actualW = Math.ceil(rect2.width)  || CARD_W;
+      const actualH = Math.ceil(rect2.height) + 4 || CARD_H;
 
       html2canvas(clone, {
         useCORS: true,
