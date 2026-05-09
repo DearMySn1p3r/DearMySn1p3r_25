@@ -612,40 +612,54 @@ function downloadCard(){
     shell.appendChild(clone);
     document.body.appendChild(shell);
 
-    // 4. 브라우저가 레이아웃을 계산할 시간을 충분히 줌
-    setTimeout(() => {
-      // 실제 렌더링된 크기를 동적으로 읽음 (말풍선 등 추가 시 높이 변동 대응)
-      // getBoundingClientRect로 소수점 포함 정확한 높이 읽기 - 여백 없이 테두리까지만
-      const rect2 = clone.getBoundingClientRect();
-      const actualW = Math.ceil(rect2.width)  || CARD_W;
-      const actualH = Math.ceil(rect2.height) || CARD_H;
-
-      html2canvas(clone, {
-        useCORS: true,
-        allowTaint: true,
-        scale: SCALE,
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: actualW,
-        height: actualH,
-        scrollX: 0,
-        scrollY: 0,
-      })
-      .then(canvas => {
-        const link = document.createElement('a');
-        link.download = 'profile-card.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-        showToast('다운로드 완료! ♡');
-      })
-      .catch(err => {
-        console.error(err);
-        showToast('⚠ 오류가 발생했어요.');
-      })
-      .finally(() => {
-        document.body.removeChild(shell);
+    // 4. 복제본 내 모든 이미지가 로드 완료될 때까지 대기 (잘림 방지)
+    const imgs = clone.querySelectorAll('img');
+    const imgPromises = Array.from(imgs).map(img => {
+      if(img.complete && img.naturalHeight !== 0) return Promise.resolve();
+      return new Promise(resolve => {
+        img.onload = resolve;
+        img.onerror = resolve;
+        // 안전장치: 1초 타임아웃
+        setTimeout(resolve, 1000);
       });
-    }, 300);
+    });
+
+    Promise.all(imgPromises).then(() => {
+      // 이미지 로드 후에도 브라우저가 레이아웃 재계산할 시간 줌
+      setTimeout(() => {
+        // 실제 렌더링된 크기를 동적으로 읽음 (말풍선 등 추가 시 높이 변동 대응)
+        // getBoundingClientRect로 소수점 포함 정확한 높이 읽기 + 잘림 방지용 6px
+        const rect2 = clone.getBoundingClientRect();
+        const actualW = Math.ceil(rect2.width)  || CARD_W;
+        const actualH = Math.ceil(rect2.height) + 6 || CARD_H;
+
+        html2canvas(clone, {
+          useCORS: true,
+          allowTaint: true,
+          scale: SCALE,
+          logging: false,
+          backgroundColor: '#ffffff',
+          width: actualW,
+          height: actualH,
+          scrollX: 0,
+          scrollY: 0,
+        })
+        .then(canvas => {
+          const link = document.createElement('a');
+          link.download = 'profile-card.png';
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          showToast('다운로드 완료! ♡');
+        })
+        .catch(err => {
+          console.error(err);
+          showToast('⚠ 오류가 발생했어요.');
+        })
+        .finally(() => {
+          document.body.removeChild(shell);
+        });
+      }, 150);
+    });
   });
 }
 
