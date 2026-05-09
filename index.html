@@ -559,30 +559,55 @@ function switchTheme(t){ document.documentElement.setAttribute('data-theme',t); 
 function switchFont(f){ document.documentElement.style.setProperty('--font-card',FONT_MAP[f]); document.querySelectorAll('.font-opt').forEach(o=>o.classList.remove('active')); document.querySelector(`.font-opt[data-font="${f}"]`).classList.add('active'); }
 function switchPattern(ev,pat){ $('preview-area').className='preview-area'+(pat?' pat-'+pat:''); document.querySelectorAll('.pat-opt').forEach(o=>o.classList.remove('active')); ev.currentTarget.classList.add('active'); }
 
+// 🔥 캡처 오류 완전 해결을 위한 캡처 로직 (수정됨)
 function downloadCard(){
   showToast('카드 저장 중... ♡');
-  // 캡처 시 배경 데코 숨기기
-  document.querySelectorAll('.bg-deco').forEach(el=>el.style.visibility='hidden');
   
-  const wrapper = $('preview-wrapper');
-  const originalTransform = wrapper.style.transform;
-  wrapper.style.transform = 'none';
+  // 1. 원본 카드 복제
+  const original = $('card');
+  const clone = original.cloneNode(true);
+  
+  // 2. 복제본 스타일 강제 정규화 (겹침 및 눌림 방지)
+  clone.style.transform = 'none';
+  clone.style.position = 'fixed';
+  clone.style.top = '-9999px'; // 화면 밖으로
+  clone.style.left = '0';
+  clone.style.width = '900px';
+  clone.style.height = '680px';
+  clone.style.margin = '0';
+  clone.style.boxShadow = 'none';
+  
+  // 캡처 시 배경 데코 숨기기 (복제본 내부)
+  clone.querySelectorAll('.bg-deco, .deco').forEach(el => el.style.opacity = '1');
+  
+  document.body.appendChild(clone);
 
+  // 3. 렌더링을 위해 아주 잠깐 대기 후 캡처
   setTimeout(() => {
-    html2canvas($('card'),{useCORS:true,allowTaint:true,scale:2,logging:false,backgroundColor:null})
-      .then(c=>{
-        const a=document.createElement('a');
-        a.download='profile-card.png';
-        a.href=c.toDataURL('image/png');
-        a.click();
-        showToast('다운로드 완료! ♡');
-      })
-      .catch(()=>showToast('⚠ 오류가 발생했어요.'))
-      .finally(()=>{
-        document.querySelectorAll('.bg-deco').forEach(el=>el.style.visibility='');
-        wrapper.style.transform = originalTransform;
-      });
-  }, 50);
+    html2canvas(clone, {
+      useCORS: true,
+      allowTaint: true,
+      scale: 2, // 고해상도
+      logging: false,
+      backgroundColor: null,
+      width: 900,
+      height: 680
+    })
+    .then(canvas => {
+      const link = document.createElement('a');
+      link.download = 'profile-card.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      showToast('다운로드 완료! ♡');
+    })
+    .catch(err => {
+      console.error(err);
+      showToast('⚠ 오류가 발생했어요.');
+    })
+    .finally(() => {
+      document.body.removeChild(clone); // 캡처 후 삭제
+    });
+  }, 100);
 }
 
 const TEXT_FIELDS=['name','emoji','handle','comment'];
@@ -591,7 +616,6 @@ function shareCard(){
   const p=new URLSearchParams();
   TEXT_FIELDS.forEach(f=>{const v=inpVal(f);if(v)p.set(f,v);});
   Object.keys(state).forEach(k=>{const v=state[k];if(Array.isArray(v)&&v.length)p.set(k,v.join(','));else if(typeof v==='string'&&v)p.set(k,v);});
-  // pair names
   if(pairs.length){
     p.set('pnames', pairs.map(x=>x.name||'').join('|||'));
     p.set('pcount', pairs.length);
@@ -618,9 +642,7 @@ function loadFromURL(){
 function resetAll(){
   if(!confirm('정말 모든 입력을 초기화할까요?'))return;
   TEXT_FIELDS.forEach(f=>{const el=$('inp-'+f);if(el)el.value='';});
-  // clear avatar
   clearUpload('avatar');
-  // clear all pairs
   pairs.forEach(p=>delete imgData['pair_'+p.id]);
   pairs.length=0;
   SECTIONS.forEach(s=>{state[s.key]=s.single?null:[];});
