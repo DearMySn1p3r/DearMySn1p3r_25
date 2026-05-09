@@ -576,7 +576,6 @@ function downloadCard(){
       `left:-${CARD_W + 100}px`,
       `width:${CARD_W}px`,
       'height:auto',
-      'padding-bottom:48px',
       'overflow:visible',
       'z-index:9999',
     ].join(';');
@@ -590,7 +589,6 @@ function downloadCard(){
       'transform:none',
       'position:static',
       'margin:0',
-      'padding-bottom:24px',
       'box-shadow:none',
       'border-radius:22px',
       'overflow:hidden',
@@ -617,10 +615,10 @@ function downloadCard(){
     // 4. 브라우저가 레이아웃을 계산할 시간을 충분히 줌
     setTimeout(() => {
       // 실제 렌더링된 크기를 동적으로 읽음 (말풍선 등 추가 시 높이 변동 대응)
-      // getBoundingClientRect로 소수점 포함 정확한 높이 읽기 + 여유 4px
+      // getBoundingClientRect로 소수점 포함 정확한 높이 읽기 - 여백 없이 테두리까지만
       const rect2 = clone.getBoundingClientRect();
       const actualW = Math.ceil(rect2.width)  || CARD_W;
-      const actualH = Math.ceil(rect2.height) + 40 || CARD_H;
+      const actualH = Math.ceil(rect2.height) || CARD_H;
 
       html2canvas(clone, {
         useCORS: true,
