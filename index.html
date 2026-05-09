@@ -573,9 +573,10 @@ function downloadCard(){
     shell.style.cssText = [
       'position:fixed',
       `top:0`,
-      `left:-${CARD_W + 100}px`,   // 화면 왼쪽 완전 밖
+      `left:-${CARD_W + 100}px`,
       `width:${CARD_W}px`,
-      `height:auto`,
+      'height:auto',
+      'padding-bottom:16px',
       'overflow:visible',
       'z-index:9999',
     ].join(';');
@@ -589,6 +590,7 @@ function downloadCard(){
       'transform:none',
       'position:static',
       'margin:0',
+      'padding-bottom:4px',
       'box-shadow:none',
       'border-radius:22px',
       'overflow:hidden',
@@ -618,7 +620,7 @@ function downloadCard(){
       // getBoundingClientRect로 소수점 포함 정확한 높이 읽기 + 여유 4px
       const rect2 = clone.getBoundingClientRect();
       const actualW = Math.ceil(rect2.width)  || CARD_W;
-      const actualH = Math.ceil(rect2.height) + 4 || CARD_H;
+      const actualH = Math.ceil(rect2.height) + 12 || CARD_H;
 
       html2canvas(clone, {
         useCORS: true,
