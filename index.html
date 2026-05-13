@@ -231,6 +231,113 @@ textarea.fi{resize:vertical;min-height:55px;line-height:1.55;border-radius:12px;
 
 .toast{position:fixed;bottom:24px;right:24px;background:var(--c-deep);color:#fff;padding:11px 18px;border-radius:11px;font-size:12px;font-weight:700;z-index:999;transform:translateY(80px);transition:transform .3s;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.15);}
 .toast.show{transform:translateY(0);}
+
+/* ===== 📱 MOBILE (≤ 768px) ===== */
+@media (max-width: 768px){
+  body{font-size:14px;}
+
+  .page-header{padding:10px 14px;position:sticky;top:0;}
+  .logo{font-size:15px;gap:8px;}
+  .header-hint{display:none;}
+
+  /* stack vertically: preview on top, editor below */
+  .main{
+    grid-template-columns:1fr;
+    grid-template-rows:auto auto;
+    min-height:auto;
+  }
+
+  .preview-area{
+    order:1;
+    height:46vh;
+    min-height:280px;
+    max-height:520px;
+    padding:14px;
+    border-bottom:2px solid var(--c-border);
+  }
+  .bg-deco{display:none;}
+
+  .editor{
+    order:2;
+    border-right:none;
+    padding:14px 12px 24px;
+    gap:12px;
+    overflow-y:visible;
+    max-height:none;
+  }
+
+  /* slightly larger touch targets for inputs/buttons */
+  .tip-banner{font-size:12px;padding:10px 12px;}
+  .tab-btn{padding:10px 4px;font-size:12px;}
+  .fl{font-size:12px;}
+  .fh{font-size:11px;}
+  .fi{padding:10px 13px;font-size:13px;border-radius:14px;}
+  .fi:not(textarea){border-radius:999px;}
+  textarea.fi{min-height:60px;}
+  .cc{font-size:11px;}
+
+  .upload-btn{padding:11px 16px;font-size:12px;}
+  .upload-clear{width:28px;height:28px;font-size:16px;}
+  .upload-fname{font-size:11px;max-width:110px;}
+
+  /* image transform editor — bigger tap targets */
+  .img-edit{padding:9px;gap:9px;}
+  .img-edit-preview{width:92px;height:92px;}
+  .img-pan-tool{grid-template-columns:repeat(3,28px);grid-template-rows:repeat(3,28px);gap:3px;}
+  .img-pan-tool button{font-size:12px;}
+  .img-edit-hint{font-size:10px;}
+
+  /* gallery cards (pair editor) */
+  .gallery-card{padding:12px;gap:9px;}
+  .gc-title{font-size:12px;}
+  .gc-del{width:26px;height:26px;font-size:15px;}
+  .add-pair-btn{padding:15px;font-size:13px;}
+
+  /* style tab grids */
+  .theme-grid{grid-template-columns:repeat(6,1fr);gap:6px;margin-top:20px;}
+  .tsw-label{font-size:9px;bottom:-14px;}
+  .pat-grid{grid-template-columns:repeat(4,1fr);gap:7px;}
+  .pat-lbl{font-size:9px;}
+  .font-opt{padding:11px 13px;font-size:12px;}
+  .fp-prev{font-size:15px;width:44px;}
+
+  /* action buttons */
+  .dl-btn{padding:15px;font-size:14px;}
+  .share-btn{padding:12px;font-size:13px;}
+  .reset-btn{padding:10px;font-size:11px;}
+
+  /* toast — wider on mobile */
+  .toast{bottom:14px;right:12px;left:12px;text-align:center;}
+}
+
+/* ===== 📱 SMALL PHONES (≤ 480px) ===== */
+@media (max-width: 480px){
+  .page-header{padding:9px 12px;}
+  .logo{font-size:14px;}
+
+  .preview-area{
+    height:42vh;
+    min-height:250px;
+    padding:10px;
+  }
+
+  .editor{padding:12px 10px 22px;gap:11px;}
+
+  .theme-grid{grid-template-columns:repeat(3,1fr);gap:8px;margin-top:22px;}
+  .tsw-label{font-size:10px;}
+
+  .pat-grid{grid-template-columns:repeat(2,1fr);}
+
+  .img-edit-preview{width:84px;height:84px;}
+  .img-pan-tool{grid-template-columns:repeat(3,30px);grid-template-rows:repeat(3,30px);}
+
+  .upload-fname{max-width:80px;}
+}
+
+/* landscape phones — give the preview more breathing room */
+@media (max-width: 900px) and (max-height: 500px) and (orientation: landscape){
+  .preview-area{height:80vh;min-height:200px;}
+}
 </style>
 </head>
 <body>
@@ -914,7 +1021,9 @@ function resetAll(){
 
 function scalePreview(){
   const a=$('preview-area'),w=$('preview-wrapper');if(!a||!w)return;
-  const s=Math.min((a.clientWidth-60)/900,(a.clientHeight-60)/680,1);
+  const isMobile = window.innerWidth <= 768;
+  const pad = isMobile ? 20 : 60;
+  const s=Math.min((a.clientWidth-pad)/900,(a.clientHeight-pad)/680,1);
   w.style.transformOrigin='top left';
   w.style.position='absolute';
   const scaledW=900*s, scaledH=680*s;
@@ -935,6 +1044,7 @@ function prewarmFonts() {
 }
 
 window.addEventListener('resize', scalePreview);
+window.addEventListener('orientationchange', () => setTimeout(scalePreview, 150));
 window.addEventListener('load', () => {
   buildInfoBox();
   loadFromURL();
