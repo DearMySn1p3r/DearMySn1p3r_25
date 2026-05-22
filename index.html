@@ -523,9 +523,9 @@ function getTransform(key){
   return imgTransform[key];
 }
 
-// cover 방식: 가로/세로 모두 컨테이너를 꽉 채움
+// contain 방식: 가로/세로 모두 꽉 채우지 않고 전체 이미지가 보이게 함
 function buildImgHtml(src, t){
-  return `<img src="${escH(src)}" draggable="false" style="position:absolute;top:50%;left:50%;width:100%;height:100%;object-fit:cover;transform:translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale});transform-origin:center center;user-select:none;-webkit-user-drag:none;image-rendering:auto;">`;
+  return `<img src="${escH(src)}" draggable="false" style="position:absolute;top:50%;left:50%;width:100%;height:100%;object-fit:contain;transform:translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale});transform-origin:center center;user-select:none;-webkit-user-drag:none;image-rendering:auto;">`;
 }
 
 // ===== IMAGE EDITOR =====
@@ -542,10 +542,9 @@ function buildImgEditor(key){
   const t = getTransform(key);
   wrap.classList.add('show');
 
-  // ★ 핵심 수정: 에디터 미리보기 이미지도 동일한 방식 적용
   wrap.innerHTML = `
     <div class="img-edit-preview" id="iep-${key}">
-      <img id="iepi-${key}" src="${escH(imgData[key])}" draggable="false" style="position:absolute;top:50%;left:50%;width:100%;height:100%;object-fit:cover;transform:translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale});transform-origin:center center;user-select:none;-webkit-user-drag:none;image-rendering:auto;">
+      <img id="iepi-${key}" src="${escH(imgData[key])}" draggable="false" style="position:absolute;top:50%;left:50%;width:100%;height:100%;object-fit:contain;transform:translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale});transform-origin:center center;user-select:none;-webkit-user-drag:none;image-rendering:auto;">
     </div>
     <div class="img-edit-controls">
       <div class="img-ec-row">
@@ -574,7 +573,6 @@ function applyEditorTransform(key){
   const wrapper = $('iepi-'+key);
   if(!wrapper) return;
   const t = getTransform(key);
-  // ★ 핵심 수정: translate(-50%+x, -50%+y) 방식 유지
   wrapper.style.transform = `translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale})`;
 
   const valEl = $('ies-'+key);
@@ -898,7 +896,7 @@ function downloadCard(){
     shell.appendChild(clone);
     document.body.appendChild(shell);
 
-    // ★ 캡처용 Canvas도 contain 방식: 잘리지 않고 프레임에 꽉 차게
+    // ★ 캡처용 Canvas도 contain 방식: 잘리지 않고 프레임 안에 다 들어가게 계산 수정
     function makeImgCanvas(src, transform, el) {
       return new Promise(resolve => {
         const cssW = el.offsetWidth  || 78;
@@ -913,13 +911,16 @@ function downloadCard(){
           canvas.style.cssText = `position:absolute;top:0;left:0;width:${cssW}px;height:${cssH}px;`;
           const ctx = canvas.getContext('2d');
           const t = transform || { scale: 1, x: 0, y: 0 };
-          // cover 방식: 가로/세로 중 더 큰 쪽 기준으로 배율 계산
-          const coverBase = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
-          const containScale = coverBase * t.scale;
+          
+          // contain 방식: 가로/세로 중 더 작은 쪽 기준으로 배율 계산
+          const containBase = Math.min(cw / img.naturalWidth, ch / img.naturalHeight);
+          const containScale = containBase * t.scale;
           const sw = img.naturalWidth  * containScale;
           const sh = img.naturalHeight * containScale;
+          
           const dx = (cw - sw) / 2 + t.x * SCALE;
           const dy = (ch - sh) / 2 + t.y * SCALE;
+          
           ctx.drawImage(img, dx, dy, sw, sh);
           resolve(canvas);
         };
