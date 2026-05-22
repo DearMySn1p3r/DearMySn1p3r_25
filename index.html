@@ -98,7 +98,7 @@ textarea.fi{resize:vertical;min-height:55px;line-height:1.55;border-radius:12px;
 .gc-del{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--c-border);background:var(--c-card);color:var(--c-text-mute);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;line-height:1;transition:all .15s;}
 .gc-del:hover{color:var(--c-deep);border-color:var(--c-strong);background:var(--c-tint);}
 
-.add-pair-btn{padding:14px;background:var(--c-soft);border:2px dashed var(--border);border-radius:11px;color:var(--c-text-mute);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;letter-spacing:.3px;}
+.add-pair-btn{padding:14px;background:var(--c-soft);border:2px dashed var(--c-border);border-radius:11px;color:var(--c-text-mute);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;letter-spacing:.3px;}
 .add-pair-btn:hover{border-color:var(--c-strong);color:var(--c-deep);background:var(--c-tint);}
 .add-pair-btn:active{transform:scale(.97);}
 .pair-counter{font-size:10px;color:var(--c-text-mute);text-align:center;margin-top:-4px;}
@@ -476,12 +476,52 @@ function getTransform(key){
   return imgTransform[key];
 }
 
-// ★ 원본 비율 완전 유지 구조로 수정 (min-width/height + auto 조합으로 하이드된 파트 보존)
-function buildImgHtml(src, t){
-  return `<img src="${escH(src)}" draggable="false" style="position:absolute;top:50%;left:50%;min-width:100%;min-height:100%;width:auto;height:auto;transform:translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale});transform-origin:center center;user-select:none;-webkit-user-drag:none;image-rendering:auto;">`;
+function fitImg(img) {
+    const p = img.parentElement;
+    if (!p || p.offsetWidth === 0) return;
+    const ratioP = p.offsetWidth / p.offsetHeight;
+    const ratioI = img.naturalWidth / img.naturalHeight;
+    if (ratioI > ratioP) {
+        img.style.height = '100%';
+        img.style.width = 'auto';
+    } else {
+        img.style.width = '100%';
+        img.style.height = 'auto';
+    }
 }
 
-// ===== IMAGE EDITOR =====
+function fitAllImgs() {
+    document.querySelectorAll('.auto-fit-img').forEach(fitImg);
+}
+
+// Data URL은 이스케이프 처리 제외하여 브라우저 과부하 방지 (중요)
+function buildImgHtml(src, t){
+  return `<img src="${src}" class="auto-fit-img" onload="fitImg(this)" draggable="false" style="position:absolute;top:50%;left:50%;transform:translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale});transform-origin:center center;user-select:none;-webkit-user-drag:none;image-rendering:auto;max-width:none;max-height:none;">`;
+}
+
+// ===== IMAGE EDITOR & DRAG OPTIMIZATION =====
+let isDraggingImg = null;
+let imgDragStartX = 0, imgDragStartY = 0;
+let imgDragStartTX = 0, imgDragStartTY = 0;
+
+function initGlobalDrag() {
+  const onMove = (e) => {
+    if(!isDraggingImg) return;
+    const pt = e.touches ? e.touches[0] : e;
+    const t = getTransform(isDraggingImg);
+    t.x = imgDragStartTX + (pt.clientX - imgDragStartX);
+    t.y = imgDragStartTY + (pt.clientY - imgDragStartY);
+    applyEditorTransform(isDraggingImg);
+    e.preventDefault();
+  };
+  const onUp = () => { isDraggingImg = null; };
+
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+  window.addEventListener('touchmove', onMove, { passive: false });
+  window.addEventListener('touchend', onUp);
+}
+
 function buildImgEditor(key){
   const wrap = $('ie-'+key);
   if(!wrap) return;
@@ -495,10 +535,9 @@ function buildImgEditor(key){
   const t = getTransform(key);
   wrap.classList.add('show');
 
-  // ★ 에디터 미리보기 창 내부 이미지도 원본 비율 파괴 없이 보존하도록 변경
   wrap.innerHTML = `
     <div class="img-edit-preview" id="iep-${key}">
-      <img id="iepi-${key}" src="${escH(imgData[key])}" draggable="false" style="position:absolute;top:50%;left:50%;min-width:100%;min-height:100%;width:auto;height:auto;transform:translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale});transform-origin:center center;user-select:none;-webkit-user-drag:none;image-rendering:auto;">
+      <img id="iepi-${key}" class="auto-fit-img" onload="fitImg(this)" src="${imgData[key]}" draggable="false" style="position:absolute;top:50%;left:50%;transform:translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale});transform-origin:center center;user-select:none;-webkit-user-drag:none;image-rendering:auto;max-width:none;max-height:none;">
     </div>
     <div class="img-edit-controls">
       <div class="img-ec-row">
@@ -521,23 +560,42 @@ function buildImgEditor(key){
     </div>`;
 
   attachImgEditorEvents(key);
+  setTimeout(fitAllImgs, 10);
 }
 
 function applyEditorTransform(key){
-  const wrapper = $('iepi-'+key);
-  if(!wrapper) return;
   const t = getTransform(key);
-  wrapper.style.transform = `translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale})`;
+  
+  // 사이드바 에디터 업데이트
+  const wrapper = $('iepi-'+key);
+  if(wrapper) wrapper.style.transform = `translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale})`;
 
   const valEl = $('ies-'+key);
   if(valEl) valEl.textContent = t.scale.toFixed(2)+'x';
+
+  // 메인 카드 화면 다이렉트 업데이트 (전체 렌더링 X)
+  if (key === 'avatar') {
+    const mainImg = document.querySelector('#d-avatar .auto-fit-img');
+    if(mainImg) mainImg.style.transform = `translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale})`;
+  } else if (key.startsWith('pair_')) {
+    const pId = parseInt(key.split('_')[1]);
+    const pairIdx = pairs.findIndex(p => p.id === pId);
+    if (pairIdx !== -1) {
+      const polys = document.querySelectorAll('#d-poly-grid .poly');
+      if(polys[pairIdx]) {
+        const mainImg = polys[pairIdx].querySelector('.auto-fit-img');
+        if(mainImg) mainImg.style.transform = `translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale})`;
+      }
+    }
+  }
 }
 
 function setImgScale(key, val){
   const t = getTransform(key);
   t.scale = parseFloat(val);
   applyEditorTransform(key);
-  render();
+  const slider = $('ie-'+key)?.querySelector('input[type="range"]');
+  if(slider) slider.value = t.scale;
 }
 
 function panImg(key, dx, dy){
@@ -545,15 +603,13 @@ function panImg(key, dx, dy){
   t.x += dx;
   t.y += dy;
   applyEditorTransform(key);
-  render();
 }
 
 function resetImgTransform(key){
   imgTransform[key] = { scale:1, x:0, y:0 };
+  applyEditorTransform(key);
   const slider = $('ie-'+key)?.querySelector('input[type="range"]');
   if(slider) slider.value = '1';
-  applyEditorTransform(key);
-  render();
 }
 
 function attachImgEditorEvents(key){
@@ -564,50 +620,22 @@ function attachImgEditorEvents(key){
     e.preventDefault();
     const t = getTransform(key);
     const delta = e.deltaY < 0 ? 0.08 : -0.08;
-    t.scale = Math.max(0.5, Math.min(3, t.scale + delta));
-    applyEditorTransform(key);
-    const slider = $('ie-'+key)?.querySelector('input[type="range"]');
-    if(slider) slider.value = t.scale;
-    render();
+    setImgScale(key, Math.max(0.5, Math.min(3, t.scale + delta)));
   }, { passive: false });
 
-  let isDragging = false, startX = 0, startY = 0, startTX = 0, startTY = 0;
-
   const onDown = (e) => {
-    isDragging = true;
+    isDraggingImg = key;
     const pt = e.touches ? e.touches[0] : e;
-    startX = pt.clientX;
-    startY = pt.clientY;
+    imgDragStartX = pt.clientX;
+    imgDragStartY = pt.clientY;
     const t = getTransform(key);
-    startTX = t.x;
-    startTY = t.y;
+    imgDragStartTX = t.x;
+    imgDragStartTY = t.y;
     e.preventDefault();
-  };
-
-  const onMove = (e) => {
-    if(!isDragging) return;
-    const pt = e.touches ? e.touches[0] : e;
-    const t = getTransform(key);
-    t.x = startTX + (pt.clientX - startX);
-    t.y = startTY + (pt.clientY - startY);
-    applyEditorTransform(key);
-    e.preventDefault();
-  };
-
-  const onUp = () => {
-    if(isDragging){
-      isDragging = false;
-      render();
-    }
   };
 
   preview.addEventListener('mousedown', onDown);
-  window.addEventListener('mousemove', onMove);
-  window.addEventListener('mouseup', onUp);
-
   preview.addEventListener('touchstart', onDown, { passive: false });
-  preview.addEventListener('touchmove', onMove, { passive: false });
-  preview.addEventListener('touchend', onUp);
 }
 
 function handleUpload(fileInput, key) {
@@ -625,7 +653,7 @@ function handleUpload(fileInput, key) {
     const fn = $('fn-'+key);
     if(fn) fn.textContent = file.name.length > 16 ? file.name.slice(0,14)+'…' : file.name;
     buildImgEditor(key);
-    render();
+    render(); // 최초 첨부 시에만 전체 렌더링 반영
   };
   reader.readAsDataURL(file);
 }
@@ -810,10 +838,18 @@ function renderGallery() {
     el.innerHTML = `<div class="poly-img">${imgHtml}</div>${p.name ? `<div class="poly-name">${escH(p.name)}</div>` : ''}`;
     grid.appendChild(el);
   });
+  
+  setTimeout(fitAllImgs, 10);
 }
 
 // ===== CONTROLS =====
-function switchTab(ev,name){ document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); $('tab-'+name).classList.add('active'); ev.target.classList.add('active'); }
+function switchTab(ev,name){ 
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active')); 
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); 
+  $('tab-'+name).classList.add('active'); 
+  ev.target.classList.add('active'); 
+  setTimeout(fitAllImgs, 10);
+}
 function switchTheme(t){ document.documentElement.setAttribute('data-theme',t); document.querySelectorAll('.tsw').forEach(s=>s.classList.remove('active')); document.querySelector(`.tsw[data-theme="${t}"]`).classList.add('active'); }
 function switchFont(f){ document.documentElement.style.setProperty('--font-card',FONT_MAP[f]); document.querySelectorAll('.font-opt').forEach(o=>o.classList.remove('active')); document.querySelector(`.font-opt[data-font="${f}"]`).classList.add('active'); }
 function switchPattern(ev,pat){ $('preview-area').className='preview-area'+(pat?' pat-'+pat:''); document.querySelectorAll('.pat-opt').forEach(o=>o.classList.remove('active')); ev.currentTarget.classList.add('active'); }
@@ -850,7 +886,6 @@ function downloadCard(){
     shell.appendChild(clone);
     document.body.appendChild(shell);
 
-    // ★ 캔버스 드로잉도 원본 비율을 보존한 상태에서 사용자가 오프셋을 조정한 만큼 정확하게 묘사하도록 대응
     function makeImgCanvas(src, transform, el) {
       return new Promise(resolve => {
         const cssW = el.offsetWidth  || 78;
@@ -866,7 +901,6 @@ function downloadCard(){
           const ctx = canvas.getContext('2d');
           const t = transform || { scale: 1, x: 0, y: 0 };
           
-          // 원본 종횡비에 맞는 비율 계산
           const coverBase = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
           const coverScale = coverBase * t.scale;
           const sw = img.naturalWidth  * coverScale;
@@ -998,13 +1032,20 @@ function prewarmFonts() {
   });
 }
 
-window.addEventListener('resize', scalePreview);
-window.addEventListener('orientationchange', () => setTimeout(scalePreview, 150));
+window.addEventListener('resize', () => {
+    scalePreview();
+    fitAllImgs();
+});
+window.addEventListener('orientationchange', () => setTimeout(() => {
+    scalePreview();
+    fitAllImgs();
+}, 150));
 window.addEventListener('load', () => {
   buildInfoBox();
   loadFromURL();
   scalePreview();
   prewarmFonts();
+  initGlobalDrag(); // 드래그 최적화 매니저 초기화
 });
 </script>
 </body>
