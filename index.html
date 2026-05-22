@@ -150,7 +150,7 @@ textarea.fi{resize:vertical;min-height:55px;line-height:1.55;border-radius:12px;
 
 .profile-head{display:flex;align-items:flex-start;gap:18px;padding:2px 4px;}
 .avatar-wrap{position:relative;flex-shrink:0;}
-.avatar{width:78px;height:78px;border-radius:50%;background:linear-gradient(135deg,var(--c-light),var(--c-mid));border:3px solid var(--card);box-shadow:0 0 0 2px var(--c-mid);overflow:hidden;position:relative;background-color:var(--c-soft);display:flex;align-items:center;justify-content:center;}
+.avatar{width:78px;height:78px;border-radius:50%;background:linear-gradient(135deg,var(--c-light),var(--c-mid));border:3px solid var(--c-card);box-shadow:0 0 0 2px var(--c-mid);overflow:hidden;position:relative;background-color:var(--c-soft);display:flex;align-items:center;justify-content:center;}
 .avatar-empty{font-size:30px;color:var(--c-card);opacity:.7;}
 .avatar-dot{position:absolute;bottom:3px;right:3px;width:14px;height:14px;border-radius:50%;background:#FF6B85;border:2.5px solid var(--c-card);animation:pulse 2s infinite;}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,107,133,.7);}50%{box-shadow:0 0 0 5px rgba(255,107,133,0);}}
@@ -240,6 +240,7 @@ textarea.fi{resize:vertical;min-height:55px;line-height:1.55;border-radius:12px;
   .logo{font-size:15px;gap:8px;}
   .header-hint{display:none;}
 
+  /* stack vertically: preview on top, editor below */
   .main{
     grid-template-columns:1fr;
     grid-template-rows:auto auto;
@@ -265,6 +266,7 @@ textarea.fi{resize:vertical;min-height:55px;line-height:1.55;border-radius:12px;
     max-height:none;
   }
 
+  /* slightly larger touch targets for inputs/buttons */
   .tip-banner{font-size:12px;padding:10px 12px;}
   .tab-btn{padding:10px 4px;font-size:12px;}
   .fl{font-size:12px;}
@@ -278,17 +280,20 @@ textarea.fi{resize:vertical;min-height:55px;line-height:1.55;border-radius:12px;
   .upload-clear{width:28px;height:28px;font-size:16px;}
   .upload-fname{font-size:11px;max-width:110px;}
 
+  /* image transform editor — bigger tap targets */
   .img-edit{padding:9px;gap:9px;}
   .img-edit-preview{width:92px;height:92px;}
   .img-pan-tool{grid-template-columns:repeat(3,28px);grid-template-rows:repeat(3,28px);gap:3px;}
   .img-pan-tool button{font-size:12px;}
   .img-edit-hint{font-size:10px;}
 
+  /* gallery cards (pair editor) */
   .gallery-card{padding:12px;gap:9px;}
   .gc-title{font-size:12px;}
   .gc-del{width:26px;height:26px;font-size:15px;}
   .add-pair-btn{padding:15px;font-size:13px;}
 
+  /* style tab grids */
   .theme-grid{grid-template-columns:repeat(6,1fr);gap:6px;margin-top:20px;}
   .tsw-label{font-size:9px;bottom:-14px;}
   .pat-grid{grid-template-columns:repeat(4,1fr);gap:7px;}
@@ -296,10 +301,12 @@ textarea.fi{resize:vertical;min-height:55px;line-height:1.55;border-radius:12px;
   .font-opt{padding:11px 13px;font-size:12px;}
   .fp-prev{font-size:15px;width:44px;}
 
+  /* action buttons */
   .dl-btn{padding:15px;font-size:14px;}
   .share-btn{padding:12px;font-size:13px;}
   .reset-btn{padding:10px;font-size:11px;}
 
+  /* toast — wider on mobile */
   .toast{bottom:14px;right:12px;left:12px;text-align:center;}
 }
 
@@ -327,6 +334,7 @@ textarea.fi{resize:vertical;min-height:55px;line-height:1.55;border-radius:12px;
   .upload-fname{max-width:80px;}
 }
 
+/* landscape phones — give the preview more breathing room */
 @media (max-width: 900px) and (max-height: 500px) and (orientation: landscape){
   .preview-area{height:80vh;min-height:200px;}
 }
@@ -506,7 +514,7 @@ const $ = id => document.getElementById(id);
 const inpVal = id => { const el=$('inp-'+id); return el ? el.value.trim() : ''; };
 const escH = s => s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-// ===== IMAGE UPLOAD & LAYOUT FIX =====
+// ===== IMAGE UPLOAD =====
 const imgData = {};
 const imgTransform = {};
 
@@ -515,9 +523,9 @@ function getTransform(key){
   return imgTransform[key];
 }
 
-// 원본 가로세로를 온전히 살려 프레임 뒤에 깔아두는 구조 (max-width/height 해제 및 object-fit 제거)
 function buildImgHtml(src, t){
-  return `<img src="${escH(src)}" draggable="false" style="position:absolute;top:50%;left:50%;width:auto;height:auto;max-width:none;max-height:none;transform:translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale});transform-origin:center center;user-select:none;-webkit-user-drag:none;image-rendering:auto;">`;
+  // ★ 변경됨: object-fit: contain -> cover (여백 없이 꽉 채움)
+  return `<img src="${escH(src)}" draggable="false" style="position:absolute;top:50%;left:50%;width:100%;height:100%;object-fit:cover;transform:translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale});transform-origin:center center;user-select:none;-webkit-user-drag:none;image-rendering:auto;">`;
 }
 
 // ===== IMAGE EDITOR =====
@@ -534,14 +542,15 @@ function buildImgEditor(key){
   const t = getTransform(key);
   wrap.classList.add('show');
 
+  // ★ 변경됨: 미리보기 이미지도 object-fit: cover 적용
   wrap.innerHTML = `
     <div class="img-edit-preview" id="iep-${key}">
-      <img id="iepi-'+key+'" src="${escH(imgData[key])}" draggable="false" style="position:absolute;top:50%;left:50%;width:auto;height:auto;max-width:none;max-height:none;transform:translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale});transform-origin:center center;user-select:none;-webkit-user-drag:none;image-rendering:auto;">
+      <img id="iepi-${key}" src="${escH(imgData[key])}" draggable="false" style="position:absolute;top:50%;left:50%;width:100%;height:100%;object-fit:cover;transform:translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale});transform-origin:center center;user-select:none;-webkit-user-drag:none;image-rendering:auto;">
     </div>
     <div class="img-edit-controls">
       <div class="img-ec-row">
         <label>크기</label>
-        <input type="range" min="0.1" max="3" step="0.02" value="${t.scale}" oninput="setImgScale('${key}',this.value)">
+        <input type="range" min="0.5" max="3" step="0.05" value="${t.scale}" oninput="setImgScale('${key}',this.value)">
         <span class="val" id="ies-${key}">${t.scale.toFixed(2)}x</span>
       </div>
       <div class="img-pan-tool">
@@ -557,10 +566,6 @@ function buildImgEditor(key){
       </div>
       <div class="img-edit-hint">드래그/스크롤</div>
     </div>`;
-
-  // ID 바인딩 오류 수정 (문자열 리터럴 버그 해결)
-  const uploadedImg = wrap.querySelector('.img-edit-preview img');
-  if (uploadedImg) uploadedImg.id = 'iepi-' + key;
 
   attachImgEditorEvents(key);
 }
@@ -605,8 +610,8 @@ function attachImgEditorEvents(key){
   preview.addEventListener('wheel', (e) => {
     e.preventDefault();
     const t = getTransform(key);
-    const delta = e.deltaY < 0 ? 0.05 : -0.05;
-    t.scale = Math.max(0.1, Math.min(3, t.scale + delta));
+    const delta = e.deltaY < 0 ? 0.08 : -0.08;
+    t.scale = Math.max(0.5, Math.min(3, t.scale + delta));
     applyEditorTransform(key);
     const slider = $('ie-'+key)?.querySelector('input[type="range"]');
     if(slider) slider.value = t.scale;
@@ -892,7 +897,7 @@ function downloadCard(){
     shell.appendChild(clone);
     document.body.appendChild(shell);
 
-    // 저장용 캔버스 렌더링 시에도 원본 비율을 깨지 않고 위치/크기를 그대로 매핑하도록 수식 전면 수정
+    // ★ 변경됨: 캡처용 Canvas도 cover 방식으로 변경 (빈틈없이 꽉 채움)
     function makeImgCanvas(src, transform, el) {
       return new Promise(resolve => {
         const cssW = el.offsetWidth  || 78;
@@ -908,9 +913,11 @@ function downloadCard(){
           const ctx = canvas.getContext('2d');
           const t = transform || { scale: 1, x: 0, y: 0 };
           
-          // 원본 이미지 가로세로를 스케일에 맞춰 완전 보존
-          const sw = img.naturalWidth * t.scale * SCALE;
-          const sh = img.naturalHeight * t.scale * SCALE;
+          // cover 방식: Math.min 대신 Math.max 사용
+          const coverBase = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
+          const coverScale = coverBase * t.scale;
+          const sw = img.naturalWidth  * coverScale;
+          const sh = img.naturalHeight * coverScale;
           
           const dx = (cw - sw) / 2 + t.x * SCALE;
           const dy = (ch - sh) / 2 + t.y * SCALE;
