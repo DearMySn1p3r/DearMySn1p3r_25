@@ -113,7 +113,7 @@ textarea.fi{resize:vertical;min-height:55px;line-height:1.55;border-radius:12px;
 
 .font-opts{display:flex;flex-direction:column;gap:5px;}
 .font-opt{padding:9px 12px;border:2px solid var(--c-border);border-radius:99px;cursor:pointer;font-size:12px;color:var(--c-text);background:var(--c-soft);transition:all .2s;display:flex;align-items:center;gap:10px;}
-.font-opt.active{border-color:var(--c-strong);background:color-mix(in srgb,var(--c-strong) 8%,var(--soft));}
+.font-opt.active{border-color:var(--c-strong);background:color-mix(in srgb,var(--c-strong) 8%,var(--c-soft));}
 .fp-prev{font-weight:700;font-size:14px;color:var(--c-deep);width:46px;}
 
 .pat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
@@ -523,7 +523,8 @@ function getTransform(key){
   return imgTransform[key];
 }
 
-// cover 방식: 가로/세로 비율을 유지하면서 공백 없이 꽉 채우도록 수정
+// contain 방식: 가로/세로 모두 꽉 채우지 않고 전체 이미지가 보이게 함
+// => cover 방식으로 변경: 이미지의 비율을 무시하고 영역을 꽉 채워 확대되어 보이게 함
 function buildImgHtml(src, t){
   return `<img src="${escH(src)}" draggable="false" style="position:absolute;top:50%;left:50%;width:100%;height:100%;object-fit:cover;transform:translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale});transform-origin:center center;user-select:none;-webkit-user-drag:none;image-rendering:auto;">`;
 }
@@ -542,7 +543,6 @@ function buildImgEditor(key){
   const t = getTransform(key);
   wrap.classList.add('show');
 
-  // 에디터 내부의 이미지 미리보기도 object-fit: cover로 통일
   wrap.innerHTML = `
     <div class="img-edit-preview" id="iep-${key}">
       <img id="iepi-${key}" src="${escH(imgData[key])}" draggable="false" style="position:absolute;top:50%;left:50%;width:100%;height:100%;object-fit:cover;transform:translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale});transform-origin:center center;user-select:none;-webkit-user-drag:none;image-rendering:auto;">
@@ -897,7 +897,7 @@ function downloadCard(){
     shell.appendChild(clone);
     document.body.appendChild(shell);
 
-    // ★ 캡처용 Canvas도 cover 방식으로 변경: 가로/세로 중 더 큰 배율을 선택해 여백을 없앰
+    // ★ 캡처용 Canvas도 contain 방식 대신 cover 방식으로 계산하도록 변경 수정
     function makeImgCanvas(src, transform, el) {
       return new Promise(resolve => {
         const cssW = el.offsetWidth  || 78;
@@ -913,7 +913,7 @@ function downloadCard(){
           const ctx = canvas.getContext('2d');
           const t = transform || { scale: 1, x: 0, y: 0 };
           
-          // cover 방식: Math.min 대신 Math.max를 사용하여 빈틈없이 꽉 채우도록 수정
+          // cover 방식: 가로/세로 중 더 큰 쪽 기준으로 배율 계산
           const coverBase = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
           const coverScale = coverBase * t.scale;
           const sw = img.naturalWidth  * coverScale;
