@@ -472,6 +472,8 @@ const escH = s => s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"
 // ===== IMAGE UPLOAD =====
 const imgData = {};
 const imgTransform = {};
+const imgVersion = {};
+function bumpImg(key){ imgVersion[key] = (imgVersion[key] || 0) + 1; }
 
 function getTransform(key){
   if(!imgTransform[key]) imgTransform[key] = { scale:1, x:0, y:0 };
@@ -544,8 +546,9 @@ function fitAllImgs() {
 }
 
 // Data URL은 이스케이프 처리 제외하여 브라우저 과부하 방지 (중요)
-function buildImgHtml(src, t){
-  return `<img src="${src}" class="auto-fit-img" onload="fitImg(this)" draggable="false" style="position:absolute;top:50%;left:50%;transform:translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale});transform-origin:center center;user-select:none;-webkit-user-drag:none;image-rendering:auto;max-width:none;max-height:none;">`;
+function buildImgHtml(src, t, key){
+  const v = imgVersion[key] || 0;
+  return `<img src="${src}" class="auto-fit-img" data-k="${key}" data-v="${v}" onload="fitImg(this)" draggable="false" style="position:absolute;top:50%;left:50%;transform:translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale});transform-origin:center center;user-select:none;-webkit-user-drag:none;image-rendering:auto;max-width:none;max-height:none;">`;
 }
 
 // ===== IMAGE EDITOR & DRAG OPTIMIZATION =====
@@ -695,6 +698,7 @@ function handleUpload(fileInput, key) {
   reader.onload = () => {
     imgData[key] = reader.result;
     imgTransform[key] = { scale:1, x:0, y:0 };
+    bumpImg(key);
     const btn = $('ub-'+key);
     if(btn){ btn.classList.add('has-file'); const t=btn.querySelector('.ub-text'); if(t) t.textContent='첨부됨'; }
     const cl = $('uc-'+key);
@@ -710,6 +714,7 @@ function handleUpload(fileInput, key) {
 function clearUpload(key) {
   delete imgData[key];
   delete imgTransform[key];
+  bumpImg(key);
   const btn = $('ub-'+key);
   if(btn){ btn.classList.remove('has-file'); const t=btn.querySelector('.ub-text'); if(t) t.textContent='파일 첨부'; const fi=btn.querySelector('input'); if(fi) fi.value=''; }
   const cl = $('uc-'+key);
@@ -724,10 +729,21 @@ function setImg(el, key, fallback) {
   const src = imgData[key];
   if (src) {
     const t = getTransform(key);
-    el.innerHTML = buildImgHtml(src, t);
-  } else {
-    el.innerHTML = fallback;
+    const v = String(imgVersion[key] || 0);
+    const cur = el.querySelector('img.auto-fit-img');
+    // 이미 같은 이미지가 붙어 있으면 새로 만들지 않고 위치만 갱신합니다
+    if (cur && cur.dataset.k === key && cur.dataset.v === v) {
+      cur.style.transform = `translate(calc(-50% + ${t.x}px), calc(-50% + ${t.y}px)) scale(${t.scale})`;
+      return false;
+    }
+    el.innerHTML = buildImgHtml(src, t, key);
+    el.dataset.empty = '0';
+    return true;
   }
+  if (el.dataset.empty === '1') return false;
+  el.innerHTML = fallback;
+  el.dataset.empty = '1';
+  return true;
 }
 
 function updateCount(n,max){ const el=$('inp-'+n); $('cc-'+n).textContent=el.value.length+' / '+max; }
@@ -866,35 +882,48 @@ function render() {
 
 function renderGallery() {
   const grid = $('d-poly-grid');
-  grid.innerHTML = '';
 
   if (pairs.length === 0) {
-    grid.className = 'poly-grid empty';
-    grid.removeAttribute('data-count');
-    grid.innerHTML = '<span class="gallery-empty">페어를 추가하면 여기에 보여요</span>';
+    if (grid.dataset.sig !== 'empty') {
+      grid.className = 'poly-grid empty';
+      grid.removeAttribute('data-count');
+      grid.innerHTML = '<span class="gallery-empty">페어를 추가하면 여기에 보여요</span>';
+      grid.dataset.sig = 'empty';
+    }
     return;
   }
 
-  grid.className = 'poly-grid';
-  grid.setAttribute('data-count', String(pairs.length));
+  // 페어 구성이 바뀐 경우에만 틀을 다시 만듭니다
+  const sig = pairs.map(p => p.id).join(',');
+  if (grid.dataset.sig !== sig) {
+    grid.className = 'poly-grid';
+    grid.setAttribute('data-count', String(pairs.length));
+    grid.innerHTML = '';
+    pairs.forEach(p => {
+      const el = document.createElement('div');
+      el.className = 'poly';
+      el.dataset.pairid = String(p.id);
+      el.innerHTML = '<div class="poly-img"></div><div class="poly-name"></div>';
+      grid.appendChild(el);
+    });
+    grid.dataset.sig = sig;
+  }
 
-  pairs.forEach(p => {
-    const el = document.createElement('div');
-    el.className = 'poly';
-    const key = 'pair_' + p.id;
-    const src = imgData[key];
-    let imgHtml;
-    if(src){
-      const t = getTransform(key);
-      imgHtml = buildImgHtml(src, t);
-    } else {
-      imgHtml = '<span class="poly-img-empty">♡</span>';
+  let rebuilt = false;
+  pairs.forEach((p, i) => {
+    const el = grid.children[i];
+    if (!el) return;
+    const box = el.querySelector('.poly-img');
+    if (box && setImg(box, 'pair_' + p.id, '<span class="poly-img-empty">♡</span>')) rebuilt = true;
+    const nameEl = el.querySelector('.poly-name');
+    if (nameEl) {
+      const txt = p.name || '';
+      if (nameEl.textContent !== txt) nameEl.textContent = txt;
+      nameEl.style.display = txt ? '' : 'none';
     }
-    el.innerHTML = `<div class="poly-img">${imgHtml}</div>${p.name ? `<div class="poly-name">${escH(p.name)}</div>` : ''}`;
-    grid.appendChild(el);
   });
-  
-  setTimeout(fitAllImgs, 10);
+
+  if (rebuilt) setTimeout(fitAllImgs, 10);
 }
 
 // ===== CONTROLS =====
