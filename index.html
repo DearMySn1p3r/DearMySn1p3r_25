@@ -147,7 +147,7 @@ textarea.fi{resize:vertical;min-height:76px;line-height:1.7;border-radius:14px;}
 .pw{transform-origin:top left;position:absolute;z-index:1;}
 
 /* ═══════════════ 카드 ═══════════════ */
-.card{font-family:var(--font-card);width:1040px;height:780px;border-radius:46px;flex-shrink:0;position:relative;display:flex;
+.card{font-family:var(--font-card);width:1040px;height:auto;min-height:780px;border-radius:46px;flex-shrink:0;position:relative;display:flex;
   background:var(--c-card);border:2px solid var(--c-light);padding:8px;
   box-shadow:0 22px 54px rgba(0,0,0,.08);}
 .card-frame{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;background:var(--c-card);border:2.5px solid var(--c-mid);border-radius:36px;}
@@ -216,22 +216,22 @@ textarea.fi{resize:vertical;min-height:76px;line-height:1.7;border-radius:14px;}
 .chip.on{color:var(--c-darker);background:var(--c-light);border-color:var(--c-strong);border-style:solid;}
 
 /* 페어 */
-.gallery-section{flex:1;min-height:150px;display:flex;flex-direction:column;gap:9px;}
+.gallery-section{flex:none;display:flex;flex-direction:column;gap:9px;margin-top:auto;}
 .gallery-title{display:flex;align-items:center;gap:10px;}
 .gt-text{font-family:var(--font-disp);font-size:14px;color:var(--c-deep);letter-spacing:1px;white-space:nowrap;}
 .gt-line{flex:1;height:0;border-top:1.5px dashed var(--c-mid);}
 
-.poly-grid{flex:1;min-height:0;display:grid;gap:15px;padding:9px 4px 4px;}
-.poly-grid.empty{display:flex;align-items:center;justify-content:center;border:1.5px dashed var(--c-border);border-radius:14px;}
+.poly-grid{display:grid;gap:15px;padding:9px 4px 4px;}
+.poly-grid.empty{display:flex;align-items:center;justify-content:center;min-height:168px;border:1.5px dashed var(--c-border);border-radius:14px;}
 .poly-grid[data-count="1"]{display:grid;place-items:center;grid-template-columns:1fr;}
-.poly-grid[data-count="1"] > .poly{width:38%;max-width:290px;height:100%;}
+.poly-grid[data-count="1"] > .poly{width:40%;max-width:320px;}
 .poly-grid[data-count="2"]{grid-template-columns:1fr 1fr;}
 .poly-grid[data-count="3"]{grid-template-columns:1fr 1fr 1fr;}
 .poly-grid[data-count="4"]{grid-template-columns:repeat(4,1fr);}
 .poly-grid[data-count="5"]{grid-template-columns:repeat(5,1fr);}
 .poly-grid[data-count="6"]{grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr;}
 
-.poly{background:var(--c-card);border:1.5px solid var(--c-border);border-radius:14px;padding:6px 6px 4px;display:flex;flex-direction:column;gap:6px;position:relative;min-height:0;}
+.poly{background:var(--c-card);border:1.5px solid var(--c-border);border-radius:14px;padding:6px 6px 4px;display:flex;flex-direction:column;gap:6px;position:relative;}
 .poly:nth-child(1){transform:rotate(-1.6deg);}
 .poly:nth-child(2){transform:rotate(1.2deg);}
 .poly:nth-child(3){transform:rotate(-.8deg);}
@@ -240,7 +240,7 @@ textarea.fi{resize:vertical;min-height:76px;line-height:1.7;border-radius:14px;}
 .poly:nth-child(6){transform:rotate(.9deg);}
 .poly::after{content:'';position:absolute;top:-7px;left:50%;margin-left:-20px;width:40px;height:13px;background:var(--c-mid);opacity:.55;border-radius:1px;transform:rotate(-5deg);}
 .poly:nth-child(even)::after{transform:rotate(6deg);margin-left:-14px;}
-.poly-img{flex:1;min-height:0;border-radius:10px;overflow:hidden;position:relative;background-color:var(--c-tint);display:flex;align-items:center;justify-content:center;}
+.poly-img{width:100%;aspect-ratio:4/3;border-radius:10px;overflow:hidden;position:relative;background-color:var(--c-tint);display:flex;align-items:center;justify-content:center;}
 .poly-img-empty{font-size:15px;color:var(--c-mid);}
 .poly-name{text-align:center;font-size:11px;color:var(--c-text);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 2px 3px;}
 
@@ -859,6 +859,9 @@ function render() {
   else{ $('d-ng-wrap').style.display='none'; }
 
   renderGallery();
+
+  // 글 길이에 따라 카드 높이가 달라지므로 미리보기 배율을 다시 맞춥니다
+  requestAnimationFrame(scalePreview);
 }
 
 function renderGallery() {
@@ -919,7 +922,8 @@ function downloadCard(){
   downloadCard._busy = true;
   showToast('카드를 만드는 중이에요');
 
-  const CARD_W = 1040, CARD_H = 780;
+  const CARD_W = 1040;
+  const CARD_H = Math.round(($('card') && $('card').offsetHeight) || 780);
   // 화면이 좁거나 메모리가 적은 기기에서는 배율을 낮춰 실패를 막습니다
   const SCALE = (window.innerWidth < 800 || (navigator.deviceMemory && navigator.deviceMemory <= 4)) ? 2 : 3;
   const card = $('card');
@@ -970,7 +974,7 @@ function downloadCard(){
       const clone = card.cloneNode(true);
       clone.removeAttribute('id');
       clone.style.cssText = [
-        `width:${CARD_W}px`,`height:${CARD_H}px`,
+        `width:${CARD_W}px`,`height:${CARD_H}px`,`min-height:${CARD_H}px`,
         'transform:none','position:static','margin:0','box-shadow:none',
       ].join(';');
 
@@ -1125,10 +1129,12 @@ function scalePreview(){
   const a=$('preview-area'),w=$('preview-wrapper');if(!a||!w)return;
   const isMobile = window.innerWidth <= 768;
   const pad = isMobile ? 20 : 60;
-  const s=Math.min((a.clientWidth-pad)/1040,(a.clientHeight-pad)/780,1);
+  const card=$('card');
+  const cardH=(card&&card.offsetHeight)||780;
+  const s=Math.min((a.clientWidth-pad)/1040,(a.clientHeight-pad)/cardH,1);
   w.style.transformOrigin='top left';
   w.style.position='absolute';
-  const scaledW=1040*s, scaledH=780*s;
+  const scaledW=1040*s, scaledH=cardH*s;
   w.style.left=Math.max(0,(a.clientWidth-scaledW)/2)+'px';
   w.style.top=Math.max(0,(a.clientHeight-scaledH)/2)+'px';
   w.style.transform=`scale(${s})`;
